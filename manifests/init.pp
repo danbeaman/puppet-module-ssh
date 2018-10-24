@@ -103,6 +103,7 @@ class ssh (
   $service_hasstatus                      = 'USE_DEFAULTS',
   $ssh_key_ensure                         = 'present',
   $ssh_key_import                         = true,
+  $ssh_key_import_noop_override           = false,
   $ssh_key_type                           = 'ssh-rsa',
   $ssh_config_global_known_hosts_file     = '/etc/ssh/ssh_known_hosts',
   $ssh_config_global_known_hosts_list     = undef,
@@ -718,6 +719,20 @@ class ssh (
   }
   validate_bool($ssh_key_import_real)
 
+  case type3x($ssh_key_import_noop_override) {
+    'string': {
+      validate_re($ssh_key_import_noop_override, '^(true|false)$', "ssh::ssh_key_import_noop_override may be either 'true' or 'false' and is set to <${ssh_key_import_noop_override}>.")
+      $ssh_key_import_noop_override_real = str2bool($ssh_key_import_noop_override)
+    }
+    'boolean': {
+      $ssh_key_import_noop_override_real = $ssh_key_import_noop_override
+    }
+    default: {
+      fail('ssh::ssh_key_import_noop_override type must be true or false.')
+    }
+  }
+  validate_bool($ssh_key_import_noop_override_real)
+
   case type3x($ssh_config_sendenv_xmodifiers) {
     'string': {
       $ssh_config_sendenv_xmodifiers_real = str2bool($ssh_config_sendenv_xmodifiers)
@@ -993,8 +1008,15 @@ class ssh (
 
   # import all nodes' ssh keys
   if $ssh_key_import_real == true {
-    Sshkey <<||>> {
-      target => $ssh_config_global_known_hosts_file,
+    if $ssh_key_import_noop_override_real == true {
+      Sshkey <<||>> {
+        target => $ssh_config_global_known_hosts_file,
+        noop   => false,
+      }
+    } else {
+      Sshkey <<||>> {
+        target => $ssh_config_global_known_hosts_file,
+      }
     }
   }
 
